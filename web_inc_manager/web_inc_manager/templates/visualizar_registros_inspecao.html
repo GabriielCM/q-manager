@@ -5,6 +5,9 @@
 <!-- Elemento para armazenar URL base do CRM -->
 <div id="crm-base-url" data-url="{{ config.CRM_BASE_URL }}"></div>
 
+<!-- Campo oculto para armazenar a posição de rolagem -->
+<input type="hidden" id="stored_scroll_position" value="{{ request.args.get('scroll_position', '0') }}">
+
 {% if session.get('inspecao_crm_token') %}
 <div class="alert alert-info mb-3" role="alert">
     Token CRM em uso: {{ session['inspecao_crm_token'] }}
@@ -50,28 +53,42 @@
                     <td>{{ registro.qtd_recebida }}</td>
                     <td class="status-cell" data-inspecionado="{{ registro.inspecionado|lower }}" data-adiado="{{ registro.adiado|lower }}">
                         {% if registro.inspecionado %}
-                            Inspecionado
+                            <span class="badge bg-success">Inspecionado</span>
                         {% elif registro.adiado %}
-                            Adiado
+                            <span class="badge bg-warning">Adiado</span>
                         {% else %}
-                            Pendente
+                            <span class="badge bg-secondary">Pendente</span>
                         {% endif %}
                     </td>
                     <td>
-                        <button type="button" class="btn btn-primary btn-sm" onclick="openCRMLink('{{ registro.item }}', '{{ session.get('inspecao_crm_token', '') }}')">Acessar Desenho</button>
-                        <form method="POST" action="{{ url_for('visualizar_registros_inspecao') }}" style="display:inline;" onsubmit="saveScrollPosition()">
+                        <button type="button" class="btn btn-primary btn-sm" onclick="openCRMLink('{{ registro.item }}', '{{ session.get('inspecao_crm_token', '') }}')">
+                            <i class="fas fa-search me-1"></i> Acessar Desenho
+                        </button>
+                        
+                        <!-- Form para inspecionar -->
+                        <form method="POST" action="{{ url_for('visualizar_registros_inspecao') }}" 
+                              style="display:inline;" 
+                              onsubmit="return saveAndSubmit(this, 'inspecionar', {{ ar }}, {{ loop.index0 }})">
                             <input type="hidden" name="item_index" value="{{ loop.index0 }}">
                             <input type="hidden" name="action" value="inspecionar">
                             <input type="hidden" name="ar" value="{{ ar }}">
-                            <input type="hidden" name="scroll_position" id="scroll_position_inspecionar_{{ ar }}_{{ loop.index0 }}">
-                            <button type="submit" class="btn btn-success btn-sm">Inspecionar</button>
+                            <input type="hidden" name="scroll_position" class="scroll-position-input">
+                            <button type="submit" class="btn btn-success btn-sm">
+                                <i class="fas fa-check me-1"></i> Inspecionar
+                            </button>
                         </form>
-                        <form method="POST" action="{{ url_for('visualizar_registros_inspecao') }}" style="display:inline;" onsubmit="saveScrollPosition()">
+                        
+                        <!-- Form para adiar -->
+                        <form method="POST" action="{{ url_for('visualizar_registros_inspecao') }}" 
+                              style="display:inline;" 
+                              onsubmit="return saveAndSubmit(this, 'adiar', {{ ar }}, {{ loop.index0 }})">
                             <input type="hidden" name="item_index" value="{{ loop.index0 }}">
                             <input type="hidden" name="action" value="adiar">
                             <input type="hidden" name="ar" value="{{ ar }}">
-                            <input type="hidden" name="scroll_position" id="scroll_position_adiar_{{ ar }}_{{ loop.index0 }}">
-                            <button type="submit" class="btn btn-secondary btn-sm">Adiar</button>
+                            <input type="hidden" name="scroll_position" class="scroll-position-input">
+                            <button type="submit" class="btn btn-warning btn-sm">
+                                <i class="fas fa-clock me-1"></i> Adiar
+                            </button>
                         </form>
                     </td>
                 </tr>
@@ -84,24 +101,83 @@
 {% endfor %}
 
 <form method="POST" action="{{ url_for('salvar_rotina_inspecao') }}">
-    <div class="text-center">
-        <button type="submit" class="btn btn-primary" id="saveButton" disabled>Salvar Rotina</button>
-        <a href="{{ url_for('main_menu') }}" class="btn btn-secondary">Voltar</a>
+    <div class="text-center mb-5">
+        <button type="submit" class="btn btn-primary" id="saveButton" disabled>
+            <i class="fas fa-save me-1"></i> Salvar Rotina
+        </button>
+        <a href="{{ url_for('main_menu') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Voltar
+        </a>
     </div>
 </form>
+{% endblock %}
 
+{% block scripts %}
 <script>
-// O código JavaScript foi movido para static/js/script.js
-// Adicionamos somente o código específico para este template aqui
+// Função melhorada para salvar e submeter o formulário
+function saveAndSubmit(form, action, ar, index) {
+    // Salva a posição de rolagem atual
+    const scrollPosition = window.scrollY || window.pageYOffset;
+    
+    // Armazena em localStorage para persistência entre requisições
+    localStorage.setItem('inspecao_scroll_position', scrollPosition);
+    
+    // Atualiza o campo hidden no formulário
+    form.querySelector('.scroll-position-input').value = scrollPosition;
+    
+    // Permite que o formulário seja enviado
+    return true;
+}
+
+// Função para restaurar a posição de rolagem
+function restoreScrollPosition() {
+    // Tenta obter do localStorage primeiro (mais confiável)
+    let scrollPosition = localStorage.getItem('inspecao_scroll_position');
+    
+    // Se não estiver no localStorage, tenta obter do campo hidden ou da URL
+    if (!scrollPosition) {
+        const storedElement = document.getElementById('stored_scroll_position');
+        if (storedElement) {
+            scrollPosition = storedElement.value;
+        }
+    }
+    
+    // Se encontrou uma posição, rola para ela com um pequeno atraso para garantir
+    // que todos os elementos da página estejam carregados
+    if (scrollPosition && scrollPosition !== '0') {
+        setTimeout(() => {
+            window.scrollTo({
+                top: parseInt(scrollPosition),
+                behavior: 'auto' // Usa 'auto' em vez de 'smooth' para evitar animação visível
+            });
+        }, 100);
+    }
+}
+
+// Inicializa quando o documento estiver pronto
 document.addEventListener('DOMContentLoaded', function() {
+    // Preenche todos os inputs de posição de rolagem com o valor atual
+    document.querySelectorAll('.scroll-position-input').forEach(input => {
+        input.value = window.scrollY || window.pageYOffset;
+    });
+    
+    // Atualiza o botão de salvar
     updateSaveButton();
     
-    // Restaurar a posição de rolagem se fornecida na URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const scrollPosition = urlParams.get('scroll_position');
-    if (scrollPosition) {
-        window.scrollTo(0, parseInt(scrollPosition));
-    }
+    // Restaura a posição de rolagem
+    restoreScrollPosition();
+    
+    // Adiciona classes para destacar visualmente os status
+    document.querySelectorAll('.status-cell').forEach(cell => {
+        const inspecionado = cell.getAttribute('data-inspecionado') === 'true';
+        const adiado = cell.getAttribute('data-adiado') === 'true';
+        
+        if (inspecionado) {
+            cell.parentElement.classList.add('table-success');
+        } else if (adiado) {
+            cell.parentElement.classList.add('table-warning');
+        }
+    });
 });
 </script>
-{% endblock %}
+{% endblock %}  

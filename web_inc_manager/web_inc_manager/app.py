@@ -900,12 +900,13 @@ def visualizar_registros_inspecao():
         flash('Nenhum registro para inspeção.')
         return redirect(url_for('rotina_inspecao'))
     
-    scroll_position = None
+    scroll_position = request.args.get('scroll_position', request.form.get('scroll_position', '0'))
+    
     if request.method == 'POST':
         action = request.form.get('action')
         item_index = int(request.form.get('item_index'))
         ar = int(request.form.get('ar'))
-        scroll_position = request.form.get('scroll_position')
+        scroll_position = request.form.get('scroll_position', '0')
         
         registros_no_grupo = [r for r in registros if r['num_aviso'] == ar]
         
@@ -914,9 +915,11 @@ def visualizar_registros_inspecao():
             if action == 'inspecionar':
                 registros[registro_global_index]['inspecionado'] = True
                 registros[registro_global_index]['adiado'] = False
+                flash(f'Item {registros[registro_global_index]["item"]} marcado como inspecionado.', 'success')
             elif action == 'adiar':
                 registros[registro_global_index]['inspecionado'] = False
                 registros[registro_global_index]['adiado'] = True
+                flash(f'Item {registros[registro_global_index]["item"]} marcado como adiado.', 'warning')
             session['inspecao_registros'] = registros
     
     # Agrupar registros por AR
@@ -930,10 +933,11 @@ def visualizar_registros_inspecao():
     grupos_ar_ordenados = sorted(grupos_ar.items(), key=lambda x: x[0])
     
     # Passar scroll_position como parâmetro na URL
-    if scroll_position:
-        return redirect(url_for('visualizar_registros_inspecao', scroll_position=scroll_position))
-    
-    return render_template('visualizar_registros_inspecao.html', grupos_ar=grupos_ar_ordenados)
+    return render_template(
+        'visualizar_registros_inspecao.html', 
+        grupos_ar=grupos_ar_ordenados,
+        scroll_position=scroll_position
+    )
 
 @app.route('/listar_rotinas_inspecao')
 @login_required

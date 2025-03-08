@@ -376,3 +376,4 @@ document.addEventListener('DOMContentLoaded', function() {
         contentBody.style.paddingBottom = (footer.offsetHeight + 20) + 'px';
     }
 });
+ //git remote set-url origin https://github.com/GabriielCM/q-manager
